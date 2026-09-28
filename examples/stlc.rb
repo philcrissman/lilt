@@ -1,4 +1,4 @@
-require_relative "../prattle"
+require "prattle"
 
 # The simply typed lambda calculus, with booleans.
 #

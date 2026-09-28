@@ -1,4 +1,7 @@
+# frozen_string_literal: true
+
 require "strscan"
+require_relative "prattle/version"
 
 module Prattle
   extend self

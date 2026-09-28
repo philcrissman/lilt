@@ -1,5 +1,10 @@
-require "minitest/autorun"
-require_relative "prattle"
+require "test_helper"
+
+class PrattleTest < Minitest::Test
+  def test_has_a_version_number
+    refute_nil Prattle::VERSION
+  end
+end
 
 class LexerTest < Minitest::Test
   Token = Prattle::Token

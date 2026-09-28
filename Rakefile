@@ -1,8 +1,10 @@
-require "rake/testtask"
+# frozen_string_literal: true
 
-Rake::TestTask.new do |t|
-  t.test_files = FileList["prattle_test.rb", "examples/*_test.rb"]
-  t.warning = true
+require "bundler/gem_tasks"
+require "minitest/test_task"
+
+Minitest::TestTask.create do |t|
+  t.test_globs = ["test/**/*_test.rb", "examples/**/*_test.rb"]
 end
 
 task default: :test
