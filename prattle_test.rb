@@ -244,12 +244,12 @@ class STLCTest < Minitest::Test
 
   TERMS = {
     prefix: {
-      ident:  proc { |tok| Var.new(tok.value) },
+      ident:  proc { |tok| Var.new(tok.value.to_sym) },
       true:   proc { Bool.new(true) },
       false:  proc { Bool.new(false) },
       lparen: Prattle.group(:rparen),
       lambda: proc { |_tok, p|
-        param = p.expect(:ident).value
+        param = p.expect(:ident).value.to_sym
         p.expect(:colon)
         type = p.parse(TYPES)
         p.expect(:dot)
@@ -266,10 +266,70 @@ class STLCTest < Minitest::Test
     juxtapose: [100, proc { |fn, arg| App.new(fn, arg) }],
   }
 
-  PROGRAM = "(λf:Bool -> Bool. f true) \\x:Bool. if x then false else x"
+  # The s-expression front end: turns Sexp.read output into the same AST.
+  module FromSexp
+    extend self
 
-  def lex(source)   = Prattle::Lexer.lex(source, RULES, keywords: KEYWORDS)
-  def parse(source) = Prattle.parse(TERMS, lex(source))
+    def term(s)
+      case s
+      in :true | :false then Bool.new(s == :true)
+      in Symbol         then Var.new(s)
+      in [:lambda, [Symbol => x, t], body] then Lam.new(x, type(t), term(body))
+      in [:if, c, t, e]                    then If.new(term(c), term(t), term(e))
+      in [fn, *args] if args.any?          then args.reduce(term(fn)) { |f, a| App.new(f, term(a)) }
+      end
+    end
+
+    def type(s)
+      case s
+      in :Bool                             then TBool.new
+      in [:"->", *ts] if ts.size >= 2      then ts.map { type(_1) }.reverse.reduce { |to, from| TArrow.new(from, to) }
+      end
+    end
+  end
+
+  PROGRAM      = "(λf:Bool -> Bool. f true) \\x:Bool. if x then false else x"
+  SEXP_PROGRAM = "((lambda (f (-> Bool Bool)) (f true)) (lambda (x Bool) (if x false x)))"
+
+  def lex(source)       = Prattle::Lexer.lex(source, RULES, keywords: KEYWORDS)
+  def parse(source)     = Prattle.parse(TERMS, lex(source))
+  def from_sexp(source) = FromSexp.term(Prattle::Sexp.read(source))
+
+  def test_from_sexp_reads_a_variable
+    assert_equal Var.new(:x), from_sexp("x")
+  end
+
+  def test_from_sexp_reads_booleans
+    assert_equal Bool.new(true), from_sexp("true")
+    assert_equal Bool.new(false), from_sexp("false")
+  end
+
+  def test_from_sexp_reads_a_lambda
+    assert_equal Lam.new(:x, TBool.new, Var.new(:x)), from_sexp("(lambda (x Bool) x)")
+  end
+
+  def test_from_sexp_reads_if
+    assert_equal If.new(Var.new(:x), Bool.new(false), Bool.new(true)), from_sexp("(if x false true)")
+  end
+
+  def test_from_sexp_reads_application_curried
+    f, x, y = Var.new(:f), Var.new(:x), Var.new(:y)
+
+    assert_equal App.new(f, x), from_sexp("(f x)")
+    assert_equal App.new(App.new(f, x), y), from_sexp("(f x y)")
+  end
+
+  def test_both_front_ends_produce_the_same_ast
+    assert_equal parse(PROGRAM), from_sexp(SEXP_PROGRAM)
+  end
+
+  def test_from_sexp_reads_arrow_types_curried
+    b = TBool.new
+
+    assert_equal Lam.new(:f, TArrow.new(b, b), Var.new(:f)), from_sexp("(lambda (f (-> Bool Bool)) f)")
+    assert_equal Lam.new(:f, TArrow.new(b, TArrow.new(b, b)), Var.new(:f)),
+                 from_sexp("(lambda (f (-> Bool Bool Bool)) f)")
+  end
 
   def test_lexes_a_program
     assert_equal [[:lparen, "("], [:lambda, "λ"], [:ident, "f"], [:colon, ":"],
@@ -282,34 +342,34 @@ class STLCTest < Minitest::Test
   end
 
   def test_parses_a_lambda
-    assert_equal Lam.new("x", TBool.new, Var.new("x")), parse("λx:Bool. x")
+    assert_equal Lam.new(:x, TBool.new, Var.new(:x)), parse("λx:Bool. x")
   end
 
   def test_lambda_body_extends_as_far_right_as_possible
-    f, x = Var.new("f"), Var.new("x")
+    f, x = Var.new(:f), Var.new(:x)
 
-    assert_equal Lam.new("x", TBool.new, App.new(f, x)), parse("λx:Bool. f x")
+    assert_equal Lam.new(:x, TBool.new, App.new(f, x)), parse("λx:Bool. f x")
   end
 
   def test_arrow_types_are_right_associative
     b = TBool.new
 
-    assert_equal Lam.new("f", TArrow.new(b, TArrow.new(b, b)), Var.new("f")),
+    assert_equal Lam.new(:f, TArrow.new(b, TArrow.new(b, b)), Var.new(:f)),
                  parse("λf:Bool -> Bool -> Bool. f")
   end
 
   def test_parentheses_group_types
     b = TBool.new
 
-    assert_equal Lam.new("f", TArrow.new(TArrow.new(b, b), b), Var.new("f")),
+    assert_equal Lam.new(:f, TArrow.new(TArrow.new(b, b), b), Var.new(:f)),
                  parse("λf:(Bool -> Bool) -> Bool. f")
   end
 
   def test_parses_a_whole_program
-    b, f, x = TBool.new, Var.new("f"), Var.new("x")
+    b, f, x = TBool.new, Var.new(:f), Var.new(:x)
 
-    assert_equal App.new(Lam.new("f", TArrow.new(b, b), App.new(f, Bool.new(true))),
-                         Lam.new("x", b, If.new(x, Bool.new(false), x))),
+    assert_equal App.new(Lam.new(:f, TArrow.new(b, b), App.new(f, Bool.new(true))),
+                         Lam.new(:x, b, If.new(x, Bool.new(false), x))),
                  parse(PROGRAM)
   end
 end
