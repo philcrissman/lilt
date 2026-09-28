@@ -101,6 +101,7 @@ class STLCTest < Minitest::Test
   def test_unbound_variables_are_type_errors
     error = assert_raises(STLC::TypeError) { Typing.typeof(parse("x")) }
     assert_equal "unbound variable x", error.message
+    assert_equal Var.new(:x), error.node
   end
 
   def test_a_lambda_has_an_arrow_type
@@ -118,11 +119,13 @@ class STLCTest < Minitest::Test
   def test_applying_a_non_function_is_a_type_error
     error = assert_raises(STLC::TypeError) { type_of("f true", { f: ty("Bool") }) }
     assert_equal "expected a function, got (t_bool)", error.message
+    assert_equal Var.new(:f), error.node
   end
 
   def test_an_argument_of_the_wrong_type_is_a_type_error
     error = assert_raises(STLC::TypeError) { type_of("f true", { f: ty("(Bool -> Bool) -> Bool") }) }
     assert_equal "expected argument of type (t_arrow (t_bool) (t_bool)), got (t_bool)", error.message
+    assert_equal Bool.new(true), error.node
   end
 
   def test_if_has_the_type_of_its_branches
@@ -132,11 +135,13 @@ class STLCTest < Minitest::Test
   def test_if_condition_must_be_bool
     error = assert_raises(STLC::TypeError) { type_of("if f then true else false", { f: ty("Bool -> Bool") }) }
     assert_equal "condition must be (t_bool), got (t_arrow (t_bool) (t_bool))", error.message
+    assert_equal Var.new(:f), error.node
   end
 
   def test_if_branches_must_have_the_same_type
     error = assert_raises(STLC::TypeError) { type_of("if true then true else f", { f: ty("Bool -> Bool") }) }
     assert_equal "branches differ: (t_bool) vs (t_arrow (t_bool) (t_bool))", error.message
+    assert_equal Var.new(:f), error.node
   end
 
   def test_type_checks_a_whole_program
@@ -172,7 +177,12 @@ class STLCTest < Minitest::Test
     assert_equal Bool.new(false), interpret(PROGRAM)
 
     error = assert_raises(STLC::TypeError) { interpret("true false") }
-    assert_equal "expected a function, got (t_bool)", error.message
+    assert_equal "expected a function, got (t_bool) at 1:1", error.message
+  end
+
+  def test_interpret_points_type_errors_at_the_offending_subterm
+    error = assert_raises(STLC::TypeError) { interpret("λf:Bool -> Bool.\n  f f") }
+    assert_equal "expected argument of type (t_bool), got (t_arrow (t_bool) (t_bool)) at 2:5", error.message
   end
 
   def test_remove_names_turns_a_bound_variable_into_index_zero

@@ -94,7 +94,16 @@ module STLC
     end
   end
 
-  class TypeError < StandardError; end
+  # A type error. +node+ is the subterm it is about, so a caller holding
+  # the parser's positions table can say where it happened.
+  class TypeError < StandardError
+    attr_reader :node
+
+    def initialize(message = nil, node: nil)
+      super(message)
+      @node = node
+    end
+  end
 
   # The type checker: typeof(term, env) returns the term's type. +env+ maps
   # variable names to types.
@@ -104,22 +113,22 @@ module STLC
     def typeof(term, env = {})
       case term
       in Bool            then TBool.new
-      in Var[x]          then env.fetch(x) { raise TypeError, "unbound variable #{x}" }
+      in Var[x]          then env.fetch(x) { raise TypeError.new("unbound variable #{x}", node: term) }
       in Lam[x, t, body] then TArrow.new(t, typeof(body, env.merge(x => t)))
       in App[fn, arg]
         case typeof(fn, env)
         in TArrow[from, to]
           actual = typeof(arg, env)
-          raise TypeError, "expected argument of type #{show(from)}, got #{show(actual)}" unless actual == from
+          raise TypeError.new("expected argument of type #{show(from)}, got #{show(actual)}", node: arg) unless actual == from
           to
         in other
-          raise TypeError, "expected a function, got #{show(other)}"
+          raise TypeError.new("expected a function, got #{show(other)}", node: fn)
         end
       in If[c, t, e]
         cond = typeof(c, env)
-        raise TypeError, "condition must be #{show(TBool.new)}, got #{show(cond)}" unless cond == TBool.new
+        raise TypeError.new("condition must be #{show(TBool.new)}, got #{show(cond)}", node: c) unless cond == TBool.new
         then_, else_ = typeof(t, env), typeof(e, env)
-        raise TypeError, "branches differ: #{show(then_)} vs #{show(else_)}" unless then_ == else_
+        raise TypeError.new("branches differ: #{show(then_)} vs #{show(else_)}", node: e) unless then_ == else_
         then_
       end
     end
@@ -181,10 +190,14 @@ module STLC
   def parse(source)     = Prattle.parse(TERMS, lex(source))
   def from_sexp(source) = FromSexp.term(Prattle::Sexp.read(source))
 
-  # Parses, type-checks and evaluates +source+, returning its value.
+  # Parses, type-checks and evaluates +source+, returning its value. Type
+  # errors are re-raised with the position of the node they are about.
   def interpret(source)
-    term = parse(source)
+    term, positions = Prattle.parse_located(TERMS, lex(source))
     Typing.typeof(term)
     Eval.evaluate(term)
+  rescue TypeError => e
+    tok = positions && positions[e.node] or raise
+    raise TypeError.new("#{e.message} at #{tok.line}:#{tok.col}", node: e.node)
   end
 end
