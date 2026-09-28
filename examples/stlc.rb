@@ -29,6 +29,9 @@ module STLC
   TBool  = Data.define
   TArrow = Data.define(:from, :to)
 
+  # A runtime value: a function together with the scope it was created in.
+  Closure = Data.define(:param, :body, :env)
+
   TYPES = {
     prefix: {
       Bool:   proc { TBool.new },
@@ -120,7 +123,32 @@ module STLC
     def show(type) = Prattle::Sexp.print(type)
   end
 
+  # The evaluator: evaluate(term, env) returns the term's value. +env+ maps
+  # variable names to values. Assumes the term has already type-checked.
+  module Eval
+    extend self
+
+    def evaluate(term, env = {})
+      case term
+      in Bool            then term
+      in Var[x]          then env.fetch(x)
+      in Lam[x, _, body] then Closure.new(x, body, env)
+      in App[fn, arg]
+        evaluate(fn, env) => Closure[x, body, captured]
+        evaluate(body, captured.merge(x => evaluate(arg, env)))
+      in If[c, t, e] then evaluate(evaluate(c, env).value ? t : e, env)
+      end
+    end
+  end
+
   def lex(source)       = Prattle::Lexer.lex(source, RULES, keywords: KEYWORDS)
   def parse(source)     = Prattle.parse(TERMS, lex(source))
   def from_sexp(source) = FromSexp.term(Prattle::Sexp.read(source))
+
+  # Parses, type-checks and evaluates +source+, returning its value.
+  def interpret(source)
+    term = parse(source)
+    Typing.typeof(term)
+    Eval.evaluate(term)
+  end
 end

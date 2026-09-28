@@ -9,6 +9,7 @@ class STLCTest < Minitest::Test
 
   def ty(source)                = Prattle.parse(TYPES, lex(source))
   def type_of(source, env = {}) = Typing.typeof(parse(source), env)
+  def value_of(source)          = Eval.evaluate(parse(source))
 
   def test_lexes_a_program
     assert_equal [[:lparen, "("], [:lambda, "λ"], [:ident, "f"], [:colon, ":"],
@@ -139,5 +140,37 @@ class STLCTest < Minitest::Test
 
   def test_type_checks_a_whole_program
     assert_equal ty("Bool"), Typing.typeof(parse(PROGRAM))
+  end
+
+  def test_booleans_evaluate_to_themselves
+    assert_equal Bool.new(true), Eval.evaluate(parse("true"))
+  end
+
+  def test_a_lambda_evaluates_to_a_closure
+    assert_equal Closure.new(:x, Var.new(:x), {}), value_of("λx:Bool. x")
+  end
+
+  def test_applying_a_closure_binds_its_parameter
+    assert_equal Bool.new(false), value_of("(λx:Bool. x) false")
+  end
+
+  def test_closures_capture_their_defining_scope
+    assert_equal Bool.new(true), value_of("(λx:Bool. λy:Bool. x) true false")
+  end
+
+  def test_if_evaluates_the_chosen_branch
+    assert_equal Bool.new(false), value_of("if true then false else true")
+    assert_equal Bool.new(true), value_of("if false then false else true")
+  end
+
+  def test_evaluates_a_whole_program
+    assert_equal Bool.new(false), value_of(PROGRAM)
+  end
+
+  def test_interpret_type_checks_before_evaluating
+    assert_equal Bool.new(false), interpret(PROGRAM)
+
+    error = assert_raises(STLC::TypeError) { interpret("true false") }
+    assert_equal "expected a function, got (t_bool)", error.message
   end
 end
