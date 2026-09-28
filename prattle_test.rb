@@ -3,6 +3,7 @@ require_relative "prattle"
 
 class LexerTest < Minitest::Test
   Token = Prattle::Token
+  INTS  = [[/\s+/, nil], [/\d+/, :int]]
 
   def test_lexes_a_single_token
     rules = [[/\d+/, :int]]
@@ -12,23 +13,17 @@ class LexerTest < Minitest::Test
   end
 
   def test_rules_with_nil_type_are_skipped
-    rules = [[/\s+/, nil], [/\d+/, :int]]
-
     assert_equal [Token.new(:int, "1", 1, 1), Token.new(:int, "23", 1, 4), Token.new(:eof, nil, 1, 6)],
-                 Prattle::Lexer.lex("1  23", rules)
+                 Prattle::Lexer.lex("1  23", INTS)
   end
 
   def test_tracks_lines_and_columns_across_newlines
-    rules = [[/\s+/, nil], [/\d+/, :int]]
-
     assert_equal [Token.new(:int, "1", 1, 1), Token.new(:int, "23", 2, 3), Token.new(:eof, nil, 2, 5)],
-                 Prattle::Lexer.lex("1\n  23", rules)
+                 Prattle::Lexer.lex("1\n  23", INTS)
   end
 
   def test_unmatched_input_raises_lex_error_with_position
-    rules = [[/\s+/, nil], [/\d+/, :int]]
-
-    error = assert_raises(Prattle::LexError) { Prattle::Lexer.lex("1\n 2 $3", rules) }
+    error = assert_raises(Prattle::LexError) { Prattle::Lexer.lex("1\n 2 $3", INTS) }
     assert_equal "unexpected '$' at 2:4", error.message
   end
 
@@ -68,7 +63,7 @@ class ParserTest < Minitest::Test
   ARITH = {
     prefix: {
       ident:  proc { |tok| Var.new(tok.value) },
-      lparen: proc { |_tok, p, table| p.parse(table).tap { p.expect(:rparen) } },
+      lparen: Prattle.group(:rparen),
     },
     infix:  {
       plus:  Prattle.binary(10) { |l, r| Add.new(l, r) },
@@ -83,6 +78,9 @@ class ParserTest < Minitest::Test
                                 ["(", :lparen], [")", :rparen], [/[a-z]+/, :ident]])
   end
 
+  def parse(source) = Prattle.parse(ARITH, tokens(source))
+  def vars(*names)  = names.map { Var.new(_1) }
+
   def test_parses_a_single_prefix_token
     table = { prefix: { ident: proc { |tok| Var.new(tok.value) } } }
 
@@ -90,70 +88,70 @@ class ParserTest < Minitest::Test
   end
 
   def test_parses_an_infix_operator
-    assert_equal Add.new(Var.new("a"), Var.new("b")), Prattle.parse(ARITH, tokens("a + b"))
+    assert_equal Add.new(*vars("a", "b")), parse("a + b")
   end
 
   def test_same_power_is_left_associative
-    a, b, c = %w[a b c].map { Var.new(_1) }
+    a, b, c = vars("a", "b", "c")
 
-    assert_equal Add.new(Add.new(a, b), c), Prattle.parse(ARITH, tokens("a + b + c"))
+    assert_equal Add.new(Add.new(a, b), c), parse("a + b + c")
   end
 
   def test_higher_power_binds_tighter
-    a, b, c = %w[a b c].map { Var.new(_1) }
+    a, b, c = vars("a", "b", "c")
 
-    assert_equal Add.new(a, Mul.new(b, c)), Prattle.parse(ARITH, tokens("a + b * c"))
-    assert_equal Add.new(Mul.new(a, b), c), Prattle.parse(ARITH, tokens("a * b + c"))
+    assert_equal Add.new(a, Mul.new(b, c)), parse("a + b * c")
+    assert_equal Add.new(Mul.new(a, b), c), parse("a * b + c")
   end
 
   def test_parsing_right_side_one_below_own_power_is_right_associative
-    a, b, c = %w[a b c].map { Var.new(_1) }
+    a, b, c = vars("a", "b", "c")
 
-    assert_equal Pow.new(a, Pow.new(b, c)), Prattle.parse(ARITH, tokens("a ^ b ^ c"))
+    assert_equal Pow.new(a, Pow.new(b, c)), parse("a ^ b ^ c")
   end
 
   def test_parentheses_override_precedence
-    a, b, c = %w[a b c].map { Var.new(_1) }
+    a, b, c = vars("a", "b", "c")
 
-    assert_equal Mul.new(Add.new(a, b), c), Prattle.parse(ARITH, tokens("(a + b) * c"))
+    assert_equal Mul.new(Add.new(a, b), c), parse("(a + b) * c")
   end
 
   def test_juxtaposition_is_left_associative_application
-    f, x, y = %w[f x y].map { Var.new(_1) }
+    f, x, y = vars("f", "x", "y")
 
-    assert_equal App.new(App.new(f, x), y), Prattle.parse(ARITH, tokens("f x y"))
+    assert_equal App.new(App.new(f, x), y), parse("f x y")
   end
 
   def test_juxtaposition_binds_tighter_than_infix_operators
-    f, x, g, y = %w[f x g y].map { Var.new(_1) }
+    f, x, g, y = vars("f", "x", "g", "y")
 
-    assert_equal Add.new(App.new(f, x), App.new(g, y)), Prattle.parse(ARITH, tokens("f x + g y"))
+    assert_equal Add.new(App.new(f, x), App.new(g, y)), parse("f x + g y")
   end
 
   def test_tokens_without_prefix_handlers_end_an_application
-    f, x, y = %w[f x y].map { Var.new(_1) }
+    f, x, y = vars("f", "x", "y")
 
-    assert_equal App.new(App.new(f, x), y), Prattle.parse(ARITH, tokens("(f x) y"))
-    assert_equal App.new(f, App.new(x, y)), Prattle.parse(ARITH, tokens("f (x y)"))
+    assert_equal App.new(App.new(f, x), y), parse("(f x) y")
+    assert_equal App.new(f, App.new(x, y)), parse("f (x y)")
   end
 
   def test_expect_raises_parse_error_naming_what_it_wanted
-    error = assert_raises(Prattle::ParseError) { Prattle.parse(ARITH, tokens("(a + b")) }
+    error = assert_raises(Prattle::ParseError) { parse("(a + b") }
     assert_equal "expected rparen, got eof at 1:7", error.message
   end
 
   def test_token_with_no_prefix_handler_raises_parse_error
-    error = assert_raises(Prattle::ParseError) { Prattle.parse(ARITH, tokens("+ a")) }
+    error = assert_raises(Prattle::ParseError) { parse("+ a") }
     assert_equal "unexpected plus at 1:1", error.message
   end
 
   def test_empty_input_raises_parse_error
-    error = assert_raises(Prattle::ParseError) { Prattle.parse(ARITH, tokens("")) }
+    error = assert_raises(Prattle::ParseError) { parse("") }
     assert_equal "unexpected eof at 1:1", error.message
   end
 
   def test_leftover_tokens_raise_parse_error
-    error = assert_raises(Prattle::ParseError) { Prattle.parse(ARITH, tokens("a )")) }
+    error = assert_raises(Prattle::ParseError) { parse("a )") }
     assert_equal "expected eof, got rparen at 1:3", error.message
   end
 
@@ -190,7 +188,7 @@ class STLCTest < Minitest::Test
   TYPES = {
     prefix: {
       Bool:   proc { TBool.new },
-      lparen: proc { |_tok, p| p.parse(TYPES).tap { p.expect(:rparen) } },
+      lparen: Prattle.group(:rparen),
     },
     infix: {
       arrow: Prattle.binary(10, :right) { |from, to| TArrow.new(from, to) },
@@ -202,7 +200,7 @@ class STLCTest < Minitest::Test
       ident:  proc { |tok| Var.new(tok.value) },
       true:   proc { Bool.new(true) },
       false:  proc { Bool.new(false) },
-      lparen: proc { |_tok, p| p.parse(TERMS).tap { p.expect(:rparen) } },
+      lparen: Prattle.group(:rparen),
       lambda: proc { |_tok, p|
         param = p.expect(:ident).value
         p.expect(:colon)
@@ -221,7 +219,20 @@ class STLCTest < Minitest::Test
     juxtapose: [100, proc { |fn, arg| App.new(fn, arg) }],
   }
 
-  def parse(source) = Prattle.parse(TERMS, Prattle::Lexer.lex(source, RULES, keywords: KEYWORDS))
+  PROGRAM = "(λf:Bool -> Bool. f true) \\x:Bool. if x then false else x"
+
+  def lex(source)   = Prattle::Lexer.lex(source, RULES, keywords: KEYWORDS)
+  def parse(source) = Prattle.parse(TERMS, lex(source))
+
+  def test_lexes_a_program
+    assert_equal [[:lparen, "("], [:lambda, "λ"], [:ident, "f"], [:colon, ":"],
+                  [:Bool, "Bool"], [:arrow, "->"], [:Bool, "Bool"], [:dot, "."],
+                  [:ident, "f"], [:true, "true"], [:rparen, ")"],
+                  [:lambda, "\\"], [:ident, "x"], [:colon, ":"], [:Bool, "Bool"], [:dot, "."],
+                  [:if, "if"], [:ident, "x"], [:then, "then"], [:false, "false"],
+                  [:else, "else"], [:ident, "x"], [:eof, nil]],
+                 lex(PROGRAM).map { [_1.type, _1.value] }
+  end
 
   def test_parses_a_lambda
     assert_equal Lam.new("x", TBool.new, Var.new("x")), parse("λx:Bool. x")
@@ -252,18 +263,6 @@ class STLCTest < Minitest::Test
 
     assert_equal App.new(Lam.new("f", TArrow.new(b, b), App.new(f, Bool.new(true))),
                          Lam.new("x", b, If.new(x, Bool.new(false), x))),
-                 parse("(λf:Bool -> Bool. f true) \\x:Bool. if x then false else x")
-  end
-
-  def test_lexes_an_stlc_term
-    source = "(λf:Bool -> Bool. f true) \\x:Bool. if x then false else x"
-
-    assert_equal [[:lparen, "("], [:lambda, "λ"], [:ident, "f"], [:colon, ":"],
-                  [:Bool, "Bool"], [:arrow, "->"], [:Bool, "Bool"], [:dot, "."],
-                  [:ident, "f"], [:true, "true"], [:rparen, ")"],
-                  [:lambda, "\\"], [:ident, "x"], [:colon, ":"], [:Bool, "Bool"], [:dot, "."],
-                  [:if, "if"], [:ident, "x"], [:then, "then"], [:false, "false"],
-                  [:else, "else"], [:ident, "x"], [:eof, nil]],
-                 Prattle::Lexer.lex(source, RULES, keywords: KEYWORDS).map { [_1.type, _1.value] }
+                 parse(PROGRAM)
   end
 end

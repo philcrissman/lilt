@@ -20,6 +20,12 @@ module Prattle
     [bp, proc { |left, tok, p, table| build.call(left, p.parse(table, right_bp), tok) }]
   end
 
+  # Builds a prefix handler for a bracketing token: parses one expression in
+  # the current table, then expects +close+. Returns the inner expression.
+  def group(close)
+    proc { |_tok, p, table| p.parse(table).tap { p.expect(close) } }
+  end
+
   # A cursor over a token stream, which always ends with an :eof token.
   # Invariant: @pos always indexes a token; advance stops at :eof.
   class Parser
