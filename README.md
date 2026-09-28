@@ -209,9 +209,9 @@ This is handy for prototyping a language before its syntax has settled: write a 
 function that turns the arrays into your AST, and get to the semantics without writing
 a grammar at all. Later, the Pratt front end can produce the same AST.
 
-## Is this really Pratt parsing?
+## What is Pratt parsing?
 
-Yes. The core loop is the one from Vaughan Pratt's 1973 paper *Top Down Operator
+The core loop is the one from Vaughan Pratt's 1973 paper *Top Down Operator
 Precedence*, as popularized by Douglas Crockford. Prefix handlers are Pratt's *nud*s,
 infix handlers are his *led*s, and parsing continues while the next token's binding power
 is greater than the current minimum.
