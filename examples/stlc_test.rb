@@ -10,6 +10,7 @@ class STLCTest < Minitest::Test
   def ty(source)                = Prattle.parse(TYPES, lex(source))
   def type_of(source, env = {}) = Typing.typeof(parse(source), env)
   def value_of(source)          = Eval.evaluate(parse(source))
+  def nameless(source)          = Nameless.remove_names(parse(source))
 
   def test_lexes_a_program
     assert_equal [[:lparen, "("], [:lambda, "λ"], [:ident, "f"], [:colon, ":"],
@@ -172,5 +173,52 @@ class STLCTest < Minitest::Test
 
     error = assert_raises(STLC::TypeError) { interpret("true false") }
     assert_equal "expected a function, got (t_bool)", error.message
+  end
+
+  def test_remove_names_turns_a_bound_variable_into_index_zero
+    assert_equal ILam.new(TBool.new, Idx.new(0)), nameless("λx:Bool. x")
+  end
+
+  def test_an_index_counts_the_lambdas_between_use_and_binder
+    b = TBool.new
+
+    assert_equal ILam.new(b, ILam.new(b, Idx.new(1))), nameless("λx:Bool. λy:Bool. x")
+    assert_equal ILam.new(b, ILam.new(b, Idx.new(0))), nameless("λx:Bool. λy:Bool. y")
+  end
+
+  def test_shadowed_names_refer_to_the_innermost_binder
+    b = TBool.new
+
+    assert_equal ILam.new(b, ILam.new(b, Idx.new(0))), nameless("λx:Bool. λx:Bool. x")
+  end
+
+  def test_alpha_equivalent_terms_become_equal
+    refute_equal parse("λx:Bool. x"), parse("λy:Bool. y")
+    assert_equal nameless("λx:Bool. x"), nameless("λy:Bool. y")
+  end
+
+  def test_remove_names_recurses_through_non_binding_forms
+    b = TBool.new
+
+    assert_equal App.new(ILam.new(TArrow.new(b, b), App.new(Idx.new(0), Bool.new(true))),
+                         ILam.new(b, If.new(Idx.new(0), Bool.new(false), Idx.new(0)))),
+                 nameless(PROGRAM)
+  end
+
+  def test_remove_names_rejects_unbound_variables
+    error = assert_raises(STLC::TypeError) { nameless("λx:Bool. y") }
+    assert_equal "unbound variable y", error.message
+  end
+
+  def test_a_nameless_lambda_evaluates_to_a_closure_over_an_array
+    assert_equal IClosure.new(Idx.new(0), []), Nameless.evaluate(nameless("λx:Bool. x"))
+  end
+
+  def test_nameless_closures_capture_their_defining_scope
+    assert_equal Bool.new(true), Nameless.evaluate(nameless("(λx:Bool. λy:Bool. x) true false"))
+  end
+
+  def test_named_and_nameless_evaluation_agree
+    assert_equal value_of(PROGRAM), Nameless.evaluate(nameless(PROGRAM))
   end
 end

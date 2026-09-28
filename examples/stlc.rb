@@ -32,6 +32,12 @@ module STLC
   # A runtime value: a function together with the scope it was created in.
   Closure = Data.define(:param, :body, :env)
 
+  # Nameless (De Bruijn) terms: Idx(n) is the variable bound n lambdas out;
+  # ILam has no parameter name. App, If and Bool are shared with named terms.
+  Idx      = Data.define(:index)
+  ILam     = Data.define(:type, :body)
+  IClosure = Data.define(:body, :env)
+
   TYPES = {
     prefix: {
       Bool:   proc { TBool.new },
@@ -137,6 +143,36 @@ module STLC
         evaluate(fn, env) => Closure[x, body, captured]
         evaluate(body, captured.merge(x => evaluate(arg, env)))
       in If[c, t, e] then evaluate(evaluate(c, env).value ? t : e, env)
+      end
+    end
+  end
+
+  # De Bruijn indices: remove_names(term, ctx) converts a named term to a
+  # nameless one. +ctx+ lists the names in scope, innermost first.
+  module Nameless
+    extend self
+
+    def remove_names(term, ctx = [])
+      case term
+      in Bool            then term
+      in Var[x]          then Idx.new(ctx.index(x) || raise(TypeError, "unbound variable #{x}"))
+      in Lam[x, t, body] then ILam.new(t, remove_names(body, [x, *ctx]))
+      in App[fn, arg]    then App.new(remove_names(fn, ctx), remove_names(arg, ctx))
+      in If[c, t, e]     then If.new(remove_names(c, ctx), remove_names(t, ctx), remove_names(e, ctx))
+      end
+    end
+
+    # Evaluates a nameless term. +env+ is an Array of values, innermost first,
+    # so Idx(n) is simply env[n].
+    def evaluate(term, env = [])
+      case term
+      in Bool          then term
+      in Idx[n]        then env[n]
+      in ILam[_, body] then IClosure.new(body, env)
+      in App[fn, arg]
+        evaluate(fn, env) => IClosure[body, captured]
+        evaluate(body, [evaluate(arg, env), *captured])
+      in If[c, t, e]   then evaluate(evaluate(c, env).value ? t : e, env)
       end
     end
   end
