@@ -80,6 +80,7 @@ class ParserTest < Minitest::Test
 
   def parse(source) = Prattle.parse(ARITH, tokens(source))
   def vars(*names)  = names.map { Var.new(_1) }
+  def at(positions, node) = positions.fetch(node).then { [_1.line, _1.col] }
 
   def test_parses_a_single_prefix_token
     table = { prefix: { ident: proc { |tok| Var.new(tok.value) } } }
@@ -153,6 +154,24 @@ class ParserTest < Minitest::Test
   def test_leftover_tokens_raise_parse_error
     error = assert_raises(Prattle::ParseError) { parse("a )") }
     assert_equal "expected eof, got rparen at 1:3", error.message
+  end
+
+  def test_parse_located_records_where_each_node_starts
+    ast, positions = Prattle.parse_located(ARITH, tokens("f x + y"))
+
+    assert_equal Add.new(App.new(*vars("f", "x")), Var.new("y")), ast
+    assert_equal [1, 1], at(positions, ast)
+    assert_equal [1, 1], at(positions, ast.left)
+    assert_equal [1, 3], at(positions, ast.left.arg)
+    assert_equal [1, 7], at(positions, ast.right)
+  end
+
+  def test_parse_located_tells_equal_nodes_apart
+    ast, positions = Prattle.parse_located(ARITH, tokens("x + x"))
+
+    assert_equal ast.left, ast.right
+    assert_equal [1, 1], at(positions, ast.left)
+    assert_equal [1, 5], at(positions, ast.right)
   end
 
   def test_advance_never_moves_past_eof

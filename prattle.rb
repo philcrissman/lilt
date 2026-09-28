@@ -8,9 +8,14 @@ module Prattle
   class LexError < StandardError; end
   class ParseError < StandardError; end
 
-  def parse(table, tokens)
+  def parse(table, tokens) = parse_located(table, tokens).first
+
+  # Like parse, but also returns a Hash (compared by identity) from each node
+  # a handler built to the token where that node's expression starts.
+  def parse_located(table, tokens)
     parser = Parser.new(tokens)
-    parser.parse(table).tap { parser.expect(:eof) }
+    ast = parser.parse(table).tap { parser.expect(:eof) }
+    [ast, parser.positions]
   end
 
   # Builds an infix entry for a binary operator. The block receives the
@@ -29,20 +34,23 @@ module Prattle
   # A cursor over a token stream, which always ends with an :eof token.
   # Invariant: @pos always indexes a token; advance stops at :eof.
   class Parser
+    attr_reader :positions
+
     def initialize(tokens)
       @tokens = tokens
       @pos = 0
+      @positions = {}.compare_by_identity
     end
 
     def parse(table, min_bp = 0)
-      tok = advance
-      nud = table.fetch(:prefix)[tok.type] or error!(tok, "unexpected #{tok.type}")
-      left = nud.call(tok, self, table)
+      start = advance
+      nud = table.fetch(:prefix)[start.type] or error!(start, "unexpected #{start.type}")
+      left = locate(nud.call(start, self, table), start)
 
       loop do
         bp, led = led_for(table, peek)
         break if bp.nil? || bp <= min_bp
-        left = led.call(left)
+        left = locate(led.call(left), start)
       end
 
       left
@@ -65,6 +73,13 @@ module Prattle
     def error!(tok, message) = raise(ParseError, "#{message} at #{tok.line}:#{tok.col}")
 
     private
+
+    # Records where +node+ starts, unless an inner parse already did (as when
+    # a group handler returns its inner expression). Returns +node+.
+    def locate(node, tok)
+      @positions[node] ||= tok
+      node
+    end
 
     # If +tok+ can continue an expression, returns its binding power and a
     # callable that extends +left+. An infix entry consumes the operator
