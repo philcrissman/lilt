@@ -11,8 +11,9 @@ Gem::Specification.new do |spec|
   spec.summary = "A small toolkit for building lexers and Pratt parsers for little languages."
   spec.description = <<~DESC.tr("\n", " ").strip
     Prattle provides a table-driven lexer, a Pratt (top-down operator precedence)
-    parser engine with juxtaposition and position tracking, and an s-expression
-    reader and printer. Grammars are plain data; ASTs are whatever your handlers build.
+    parser engine extended with juxtaposition and multiple expression tables, position
+    tracking, and an s-expression reader and printer. Grammars are plain data; ASTs are
+    whatever your handlers build.
   DESC
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.2.0"
