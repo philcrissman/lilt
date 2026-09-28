@@ -1,14 +1,14 @@
 # Prattle
 
-I write a lot of little languages, mostly small lambda calculi and experiments in the
-style of TAPL, and the lexer and parser always felt like the mechanical part: the same
-code, slightly different each time, before getting to the interesting bits (type
-checkers, evaluators). Prattle is the part I kept rewriting, pulled out into a gem.
+I've been writing a lot of small languages, mostly lambda calculi and similar experiments, 
+from TAPL or other sources. I started to notice that the lexer and parser were all generally
+the same, and were not the most interesting part of the process, so I thought I would try 
+to create a library to make it easier to get a lexer and parser going for small languages.
 
-It gives you:
+It has:
 
-- **A table-driven lexer.** You write the rules and get back a list of tokens with line
-  and column numbers.
+- **A table-driven lexer.** You write the rules for recognizing tokens, and get back the 
+  list of tokens with line and column numbers.
 - **A Pratt parser engine.** You write tables of handlers, and get back whatever AST
   your handlers build.
 - **An s-expression reader and printer.** It gives you a second front end for free, and
@@ -20,11 +20,16 @@ structural equality and pattern matching for free.
 
 ## Installation
 
-Prattle isn't on RubyGems yet. In the meantime, from a clone:
+Add it to your Gemfile:
+
+```ruby
+gem "prattle"
+```
+
+or install it directly:
 
 ```sh
-bundle install
-bundle exec rake install
+gem install prattle
 ```
 
 It requires Ruby 3.2 or newer (for `Data`).
@@ -155,6 +160,10 @@ A grammar can have more than one table (terms and types, say), and a handler swi
 between them just by parsing with a different one. For example, a lambda handler that
 parses `λx:T. body` does `parser.parse(TYPES)` for the annotation and
 `parser.parse(TERMS)` for the body. See `examples/stlc.rb`.
+
+You need a separate table for each syntactic category: a part of the grammar where the
+same tokens mean different things, or different operators apply. Many small languages,
+like the untyped lambda calculus, have just one category, so one table is all they need.
 
 ### Errors and positions
 
