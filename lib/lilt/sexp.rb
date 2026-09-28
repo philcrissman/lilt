@@ -3,7 +3,7 @@
 require_relative "lexer"
 require_relative "parser"
 
-module Prattle
+module Lilt
   module Sexp
     extend self
 

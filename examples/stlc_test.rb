@@ -7,7 +7,7 @@ class STLCTest < Minitest::Test
   PROGRAM      = "(λf:Bool -> Bool. f true) \\x:Bool. if x then false else x"
   SEXP_PROGRAM = "((lambda (f (-> Bool Bool)) (f true)) (lambda (x Bool) (if x false x)))"
 
-  def ty(source)                = Prattle.parse(TYPES, lex(source))
+  def ty(source)                = Lilt.parse(TYPES, lex(source))
   def type_of(source, env = {}) = Typing.typeof(parse(source), env)
   def value_of(source)          = Eval.evaluate(parse(source))
   def nameless(source)          = Nameless.remove_names(parse(source))

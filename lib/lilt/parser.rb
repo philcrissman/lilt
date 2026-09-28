@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module Prattle
+module Lilt
   extend self
 
   class ParseError < StandardError; end

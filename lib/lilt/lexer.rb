@@ -2,7 +2,7 @@
 
 require "strscan"
 
-module Prattle
+module Lilt
   Token = Data.define(:type, :value, :line, :col)
 
   class LexError < StandardError; end

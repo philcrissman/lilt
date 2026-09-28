@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    prattle (0.1.0)
+    lilt (0.1.0)
 
 GEM
   remote: https://rubygems.org/
@@ -39,8 +39,8 @@ PLATFORMS
 
 DEPENDENCIES
   irb
+  lilt!
   minitest (~> 5.16)
-  prattle!
   rake (~> 13.0)
 
 BUNDLED WITH

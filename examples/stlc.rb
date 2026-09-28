@@ -1,4 +1,4 @@
-require "prattle"
+require "lilt"
 
 # The simply typed lambda calculus, with booleans.
 #
@@ -41,10 +41,10 @@ module STLC
   TYPES = {
     prefix: {
       Bool:   proc { TBool.new },
-      lparen: Prattle.group(:rparen),
+      lparen: Lilt.group(:rparen),
     },
     infix: {
-      arrow: Prattle.binary(10, :right) { |from, to| TArrow.new(from, to) },
+      arrow: Lilt.binary(10, :right) { |from, to| TArrow.new(from, to) },
     },
   }
 
@@ -53,7 +53,7 @@ module STLC
       ident:  proc { |tok| Var.new(tok.value.to_sym) },
       true:   proc { Bool.new(true) },
       false:  proc { Bool.new(false) },
-      lparen: Prattle.group(:rparen),
+      lparen: Lilt.group(:rparen),
       lambda: proc { |_tok, p|
         param = p.expect(:ident).value.to_sym
         p.expect(:colon)
@@ -135,7 +135,7 @@ module STLC
 
     private
 
-    def show(type) = Prattle::Sexp.print(type)
+    def show(type) = Lilt::Sexp.print(type)
   end
 
   # The evaluator: evaluate(term, env) returns the term's value. +env+ maps
@@ -186,14 +186,14 @@ module STLC
     end
   end
 
-  def lex(source)       = Prattle::Lexer.lex(source, RULES, keywords: KEYWORDS)
-  def parse(source)     = Prattle.parse(TERMS, lex(source))
-  def from_sexp(source) = FromSexp.term(Prattle::Sexp.read(source))
+  def lex(source)       = Lilt::Lexer.lex(source, RULES, keywords: KEYWORDS)
+  def parse(source)     = Lilt.parse(TERMS, lex(source))
+  def from_sexp(source) = FromSexp.term(Lilt::Sexp.read(source))
 
   # Parses, type-checks and evaluates +source+, returning its value. Type
   # errors are re-raised with the position of the node they are about.
   def interpret(source)
-    term, positions = Prattle.parse_located(TERMS, lex(source))
+    term, positions = Lilt.parse_located(TERMS, lex(source))
     Typing.typeof(term)
     Eval.evaluate(term)
   rescue TypeError => e

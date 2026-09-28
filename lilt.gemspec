@@ -1,16 +1,16 @@
 # frozen_string_literal: true
 
-require_relative "lib/prattle/version"
+require_relative "lib/lilt/version"
 
 Gem::Specification.new do |spec|
-  spec.name = "prattle"
-  spec.version = Prattle::VERSION
+  spec.name = "lilt"
+  spec.version = Lilt::VERSION
   spec.authors = ["Phil Crissman"]
   spec.email = ["phil.crissman@gmail.com"]
 
   spec.summary = "A small toolkit for building lexers and Pratt parsers for little languages."
   spec.description = <<~DESC.tr("\n", " ").strip
-    Prattle provides a table-driven lexer, a Pratt (top-down operator precedence)
+    Lilt provides a table-driven lexer, a Pratt (top-down operator precedence)
     parser engine extended with juxtaposition and multiple expression tables, position
     tracking, and an s-expression reader and printer. Grammars are plain data; ASTs are
     whatever your handlers build.

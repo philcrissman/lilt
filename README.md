@@ -1,4 +1,6 @@
-# Prattle
+# Lilt
+
+A **Li**ttle **L**anguage **T**oolkit.
 
 I've been writing a lot of small languages, mostly lambda calculi and similar experiments, 
 from TAPL or other sources. I started to notice that the lexer and parser were all generally
@@ -14,7 +16,7 @@ It has:
 - **An s-expression reader and printer.** It gives you a second front end for free, and
   a readable way to print any AST.
 
-Grammars are plain data (arrays and hashes of procs), and the AST is yours: Prattle
+Grammars are plain data (arrays and hashes of procs), and the AST is yours: Lilt
 doesn't define node types. I've been using `Data.define` for nodes, which gives you
 structural equality and pattern matching for free.
 
@@ -23,13 +25,13 @@ structural equality and pattern matching for free.
 Add it to your Gemfile:
 
 ```ruby
-gem "prattle"
+gem "lilt"
 ```
 
 or install it directly:
 
 ```sh
-gem install prattle
+gem install lilt
 ```
 
 It requires Ruby 3.2 or newer (for `Data`).
@@ -41,7 +43,7 @@ and the first match wins. A string matches literally; a regex matches a pattern;
 `nil` type means "skip this".
 
 ```ruby
-require "prattle"
+require "lilt"
 
 RULES = [
   [/\s+/,      nil],      # skip whitespace
@@ -53,22 +55,22 @@ RULES = [
   [/[a-z]\w*/, :ident],
 ]
 
-Prattle::Lexer.lex("let x", RULES, keywords: %w[let])
-# => [#<data Prattle::Token type=:let, value="let", line=1, col=1>,
-#     #<data Prattle::Token type=:ident, value="x", line=1, col=5>,
-#     #<data Prattle::Token type=:eof, value=nil, line=1, col=6>]
+Lilt::Lexer.lex("let x", RULES, keywords: %w[let])
+# => [#<data Lilt::Token type=:let, value="let", line=1, col=1>,
+#     #<data Lilt::Token type=:ident, value="x", line=1, col=5>,
+#     #<data Lilt::Token type=:eof, value=nil, line=1, col=6>]
 ```
 
 `keywords:` promotes any token whose whole text is a keyword to its own type, so `let`
 becomes `:let` while `letter` stays an `:ident`. Every token list ends with `:eof`.
 Columns count characters, not bytes, so `λ` is fine. Input that no rule matches raises
-`Prattle::LexError` with its position.
+`Lilt::LexError` with its position.
 
 ## Parsing
 
 A grammar table has `prefix:` handlers (for tokens that start an expression) and
 `infix:` entries (for tokens that continue one). An infix entry is a binding power and a
-handler; `Prattle.binary` builds the common case for you.
+handler; `Lilt.binary` builds the common case for you.
 
 ```ruby
 Num = Data.define(:value)
@@ -78,26 +80,26 @@ Mul = Data.define(:left, :right)
 ARITH = {
   prefix: {
     int:    proc { |tok| Num.new(tok.value.to_i) },
-    lparen: Prattle.group(:rparen),
+    lparen: Lilt.group(:rparen),
   },
   infix: {
-    plus: Prattle.binary(10) { |l, r| Add.new(l, r) },
-    star: Prattle.binary(20) { |l, r| Mul.new(l, r) },
+    plus: Lilt.binary(10) { |l, r| Add.new(l, r) },
+    star: Lilt.binary(20) { |l, r| Mul.new(l, r) },
   },
 }
 
-ast = Prattle.parse(ARITH, Prattle::Lexer.lex("1 + 2 * 3", RULES))
+ast = Lilt.parse(ARITH, Lilt::Lexer.lex("1 + 2 * 3", RULES))
 # => #<data Add left=#<data Num value=1>, right=#<data Mul left=#<data Num value=2>, right=#<data Num value=3>>>
 
-Prattle::Sexp.print(ast)
+Lilt::Sexp.print(ast)
 # => "(add (num 1) (mul (num 2) (num 3)))"
 ```
 
-A higher binding power binds more tightly. `Prattle.binary(bp)` is left-associative;
-`Prattle.binary(bp, :right)` is right-associative. `Prattle.group(:rparen)` parses one
+A higher binding power binds more tightly. `Lilt.binary(bp)` is left-associative;
+`Lilt.binary(bp, :right)` is right-associative. `Lilt.group(:rparen)` parses one
 expression and then expects the closing token.
 
-For prefix operators like unary minus, `Prattle.prefix(bp) { |operand| Neg.new(operand) }`
+For prefix operators like unary minus, `Lilt.prefix(bp) { |operand| Neg.new(operand) }`
 parses its operand at `bp`. With a high `bp` (say 70), `-a * b` means `(-a) * b`; with
 one between `*` and `^`, `-a ^ b` means `-(a ^ b)`. A token can have both a prefix and
 an infix handler, so `-` can mean negation and subtraction.
@@ -127,7 +129,7 @@ When a helper doesn't fit, a handler is just a proc:
 Inside a handler, `parser.parse(table, min_bp)` parses a sub-expression,
 `parser.expect(:type)` consumes a token or raises, and `parser.peek` and
 `parser.advance` look at and consume tokens. `parser.error!(token, message)` raises a
-`Prattle::ParseError` with the token's position.
+`Lilt::ParseError` with the token's position.
 
 Procs ignore arguments they don't ask for, so simple handlers stay short.
 
@@ -144,15 +146,15 @@ App = Data.define(:fn, :arg)
 LC = {
   prefix: {
     ident:  proc { |tok| Var.new(tok.value.to_sym) },
-    lparen: Prattle.group(:rparen),
+    lparen: Lilt.group(:rparen),
   },
   infix: {
-    plus: Prattle.binary(10) { |l, r| Add.new(l, r) },
+    plus: Lilt.binary(10) { |l, r| Add.new(l, r) },
   },
   juxtapose: [100, proc { |fn, arg| App.new(fn, arg) }],
 }
 
-Prattle::Sexp.print(Prattle.parse(LC, Prattle::Lexer.lex("f x y + g y", RULES)))
+Lilt::Sexp.print(Lilt.parse(LC, Lilt::Lexer.lex("f x y + g y", RULES)))
 # => "(add (app (app (var f) (var x)) (var y)) (app (var g) (var y)))"
 ```
 
@@ -175,17 +177,17 @@ like the untyped lambda calculus, have just one category, so one table is all th
 Parse errors say where they happened:
 
 ```ruby
-Prattle.parse(ARITH, Prattle::Lexer.lex("1 +", RULES))
-# raises Prattle::ParseError: unexpected eof at 1:4
+Lilt.parse(ARITH, Lilt::Lexer.lex("1 +", RULES))
+# raises Lilt::ParseError: unexpected eof at 1:4
 ```
 
-For errors found *after* parsing (type errors, say), `Prattle.parse_located` also
+For errors found *after* parsing (type errors, say), `Lilt.parse_located` also
 returns a table from each node to the token where it starts. The table is compared by
 identity, so two equal nodes at different places in the source are told apart:
 
 ```ruby
-ast, positions = Prattle.parse_located(ARITH, Prattle::Lexer.lex("1 + 2", RULES))
-positions[ast.right] # => #<data Prattle::Token type=:int, value="2", line=1, col=5>
+ast, positions = Lilt.parse_located(ARITH, Lilt::Lexer.lex("1 + 2", RULES))
+positions[ast.right] # => #<data Lilt::Token type=:int, value="2", line=1, col=5>
 ```
 
 This keeps positions out of the AST, so structural equality still works. The STLC
@@ -194,12 +196,12 @@ knowing anything about positions.
 
 ## S-expressions
 
-`Prattle::Sexp.read` turns s-expression text into nested arrays of symbols and integers,
-and `Prattle::Sexp.print` goes the other way. It also prints any `Data` node, using the
+`Lilt::Sexp.read` turns s-expression text into nested arrays of symbols and integers,
+and `Lilt::Sexp.print` goes the other way. It also prints any `Data` node, using the
 snake-cased class name as the tag:
 
 ```ruby
-Prattle::Sexp.read("(lambda (x Bool) (f x 42))")
+Lilt::Sexp.read("(lambda (x Bool) (f x 42))")
 # => [:lambda, [:x, :Bool], [:f, :x, 42]]
 ```
 
@@ -214,7 +216,7 @@ Precedence*, as popularized by Douglas Crockford. Prefix handlers are Pratt's *n
 infix handlers are his *led*s, and parsing continues while the next token's binding power
 is greater than the current minimum.
 
-Prattle adds two things that aren't in the original:
+Lilt adds two things that aren't in the original:
 
 - **Juxtaposition**, for function application.
 - **Multiple tables** per grammar.
@@ -225,7 +227,7 @@ aren't Pratt parsing; the reader is ordinary recursive descent.
 ## The STLC example
 
 [`examples/stlc.rb`](examples/stlc.rb) is a complete simply typed lambda calculus with
-booleans, built on Prattle in about 200 lines. It has:
+booleans, built on Lilt in about 200 lines. It has:
 
 - a Pratt grammar with two tables, terms and types
 - an s-expression front end that produces the same AST, and a test checking that the two agree
