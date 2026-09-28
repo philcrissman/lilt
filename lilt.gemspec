@@ -18,8 +18,9 @@ Gem::Specification.new do |spec|
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.2.0"
 
-  # Once the repository is public, set spec.homepage and
-  # spec.metadata["source_code_uri"] to its URL.
+  spec.homepage = "https://github.com/philcrissman/lilt"
+  spec.metadata["homepage_uri"] = spec.homepage
+  spec.metadata["source_code_uri"] = spec.homepage
 
   # Specify which files should be added to the gem when it is released.
   # The `git ls-files -z` loads the files in the RubyGem that have been added into git.
