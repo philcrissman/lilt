@@ -85,6 +85,41 @@ module STLC
     end
   end
 
+  class TypeError < StandardError; end
+
+  # The type checker: typeof(term, env) returns the term's type. +env+ maps
+  # variable names to types.
+  module Typing
+    extend self
+
+    def typeof(term, env = {})
+      case term
+      in Bool            then TBool.new
+      in Var[x]          then env.fetch(x) { raise TypeError, "unbound variable #{x}" }
+      in Lam[x, t, body] then TArrow.new(t, typeof(body, env.merge(x => t)))
+      in App[fn, arg]
+        case typeof(fn, env)
+        in TArrow[from, to]
+          actual = typeof(arg, env)
+          raise TypeError, "expected argument of type #{show(from)}, got #{show(actual)}" unless actual == from
+          to
+        in other
+          raise TypeError, "expected a function, got #{show(other)}"
+        end
+      in If[c, t, e]
+        cond = typeof(c, env)
+        raise TypeError, "condition must be #{show(TBool.new)}, got #{show(cond)}" unless cond == TBool.new
+        then_, else_ = typeof(t, env), typeof(e, env)
+        raise TypeError, "branches differ: #{show(then_)} vs #{show(else_)}" unless then_ == else_
+        then_
+      end
+    end
+
+    private
+
+    def show(type) = Prattle::Sexp.print(type)
+  end
+
   def lex(source)       = Prattle::Lexer.lex(source, RULES, keywords: KEYWORDS)
   def parse(source)     = Prattle.parse(TERMS, lex(source))
   def from_sexp(source) = FromSexp.term(Prattle::Sexp.read(source))

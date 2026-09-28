@@ -7,6 +7,9 @@ class STLCTest < Minitest::Test
   PROGRAM      = "(λf:Bool -> Bool. f true) \\x:Bool. if x then false else x"
   SEXP_PROGRAM = "((lambda (f (-> Bool Bool)) (f true)) (lambda (x Bool) (if x false x)))"
 
+  def ty(source)                = Prattle.parse(TYPES, lex(source))
+  def type_of(source, env = {}) = Typing.typeof(parse(source), env)
+
   def test_lexes_a_program
     assert_equal [[:lparen, "("], [:lambda, "λ"], [:ident, "f"], [:colon, ":"],
                   [:Bool, "Bool"], [:arrow, "->"], [:Bool, "Bool"], [:dot, "."],
@@ -83,5 +86,58 @@ class STLCTest < Minitest::Test
 
   def test_both_front_ends_produce_the_same_ast
     assert_equal parse(PROGRAM), from_sexp(SEXP_PROGRAM)
+  end
+
+  def test_booleans_have_type_bool
+    assert_equal TBool.new, Typing.typeof(parse("true"))
+  end
+
+  def test_variables_have_the_type_the_environment_gives_them
+    assert_equal TBool.new, Typing.typeof(parse("x"), { x: TBool.new })
+  end
+
+  def test_unbound_variables_are_type_errors
+    error = assert_raises(STLC::TypeError) { Typing.typeof(parse("x")) }
+    assert_equal "unbound variable x", error.message
+  end
+
+  def test_a_lambda_has_an_arrow_type
+    assert_equal ty("Bool -> Bool"), type_of("λx:Bool. x")
+  end
+
+  def test_an_inner_binder_shadows_an_outer_one
+    assert_equal ty("Bool -> (Bool -> Bool) -> Bool -> Bool"), type_of("λx:Bool. λx:Bool -> Bool. x")
+  end
+
+  def test_applying_a_function_gives_its_result_type
+    assert_equal ty("Bool"), type_of("f true", { f: ty("Bool -> Bool") })
+  end
+
+  def test_applying_a_non_function_is_a_type_error
+    error = assert_raises(STLC::TypeError) { type_of("f true", { f: ty("Bool") }) }
+    assert_equal "expected a function, got (t_bool)", error.message
+  end
+
+  def test_an_argument_of_the_wrong_type_is_a_type_error
+    error = assert_raises(STLC::TypeError) { type_of("f true", { f: ty("(Bool -> Bool) -> Bool") }) }
+    assert_equal "expected argument of type (t_arrow (t_bool) (t_bool)), got (t_bool)", error.message
+  end
+
+  def test_if_has_the_type_of_its_branches
+    assert_equal ty("Bool -> Bool"), type_of("if c then f else λx:Bool. x", { c: ty("Bool"), f: ty("Bool -> Bool") })
+  end
+
+  def test_if_condition_must_be_bool
+    error = assert_raises(STLC::TypeError) { type_of("if f then true else false", { f: ty("Bool -> Bool") }) }
+    assert_equal "condition must be (t_bool), got (t_arrow (t_bool) (t_bool))", error.message
+  end
+
+  def test_if_branches_must_have_the_same_type
+    error = assert_raises(STLC::TypeError) { type_of("if true then true else f", { f: ty("Bool -> Bool") }) }
+    assert_equal "branches differ: (t_bool) vs (t_arrow (t_bool) (t_bool))", error.message
+  end
+
+  def test_type_checks_a_whole_program
+    assert_equal ty("Bool"), Typing.typeof(parse(PROGRAM))
   end
 end
