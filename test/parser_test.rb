@@ -8,6 +8,7 @@ class ParserTest < Minitest::Test
   Mul = Data.define(:left, :right)
   Pow = Data.define(:left, :right)
   App = Data.define(:fn, :arg)
+  Neg = Data.define(:operand)
 
   ARITH = {
     prefix: {
@@ -23,12 +24,13 @@ class ParserTest < Minitest::Test
   }
 
   def tokens(source)
-    Prattle::Lexer.lex(source, [[/\s+/, nil], ["+", :plus], ["*", :star], ["^", :caret],
+    Prattle::Lexer.lex(source, [[/\s+/, nil], ["+", :plus], ["*", :star], ["^", :caret], ["-", :minus],
                                 ["(", :lparen], [")", :rparen], [/[a-z]+/, :ident]])
   end
 
   def parse(source) = Prattle.parse(ARITH, tokens(source))
   def vars(*names)  = names.map { Var.new(_1) }
+  def with_negation(bp) = ARITH.merge(prefix: ARITH[:prefix].merge(minus: Prattle.prefix(bp) { |x| Neg.new(x) }))
   def at(positions, node) = positions.fetch(node).then { [_1.line, _1.col] }
 
   def test_parses_a_single_prefix_token
@@ -58,6 +60,18 @@ class ParserTest < Minitest::Test
     a, b, c = vars("a", "b", "c")
 
     assert_equal Pow.new(a, Pow.new(b, c)), parse("a ^ b ^ c")
+  end
+
+  def test_prefix_operator_binding_tighter_than_infix_takes_just_the_next_operand
+    a, b = vars("a", "b")
+
+    assert_equal Mul.new(Neg.new(a), b), Prattle.parse(with_negation(70), tokens("-a * b"))
+  end
+
+  def test_prefix_operator_binding_looser_than_infix_takes_the_whole_expression
+    a, b = vars("a", "b")
+
+    assert_equal Neg.new(Pow.new(a, b)), Prattle.parse(with_negation(25), tokens("-a ^ b"))
   end
 
   def test_parentheses_override_precedence

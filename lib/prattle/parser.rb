@@ -22,6 +22,13 @@ module Prattle
     [bp, proc { |left, tok, p, table| build.call(left, p.parse(table, right_bp), tok) }]
   end
 
+  # Builds a prefix handler for a prefix operator. The operand is parsed at
+  # +bp+, so it takes in exactly the infix operators that bind tighter than
+  # +bp+. The block receives the operand (and the operator token).
+  def prefix(bp, &build)
+    proc { |tok, p, table| build.call(p.parse(table, bp), tok) }
+  end
+
   # Builds a prefix handler for a bracketing token: parses one expression in
   # the current table, then expects +close+. Returns the inner expression.
   def group(close)

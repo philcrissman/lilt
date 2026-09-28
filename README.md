@@ -97,6 +97,11 @@ A higher binding power binds more tightly. `Prattle.binary(bp)` is left-associat
 `Prattle.binary(bp, :right)` is right-associative. `Prattle.group(:rparen)` parses one
 expression and then expects the closing token.
 
+For prefix operators like unary minus, `Prattle.prefix(bp) { |operand| Neg.new(operand) }`
+parses its operand at `bp`. With a high `bp` (say 70), `-a * b` means `(-a) * b`; with
+one between `*` and `^`, `-a ^ b` means `-(a ^ b)`. A token can have both a prefix and
+an infix handler, so `-` can mean negation and subtraction.
+
 Since the AST is just data, doing something with it is a `case`/`in`:
 
 ```ruby
