@@ -3,7 +3,7 @@
 A **Li**ttle **L**anguage **T**oolkit.
 
 I've been writing a lot of small languages, mostly lambda calculi and similar experiments, 
-from TAPL or other sources. I started to notice that the lexer and parser were all generally
+from [TAPL](https://www.cis.upenn.edu/~bcpierce/tapl/) or other sources. I started to notice that the lexer and parser were all generally
 the same, and were not the most interesting part of the process, so I thought I would try 
 to create a library to make it easier to get a lexer and parser going for small languages.
 
