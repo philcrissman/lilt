@@ -50,18 +50,18 @@ module STLC
 
   TERMS = {
     prefix: {
-      ident:  proc { |tok| Var.new(tok.value.to_sym) },
+      ident:  proc { |token| Var.new(token.value.to_sym) },
       true:   proc { Bool.new(true) },
       false:  proc { Bool.new(false) },
       lparen: Lilt.group(:rparen),
-      lambda: proc { |_tok, p|
+      lambda: proc { |_token, p|
         param = p.expect(:ident).value.to_sym
         p.expect(:colon)
         type = p.parse(TYPES)
         p.expect(:dot)
         Lam.new(param, type, p.parse(TERMS))
       },
-      if: proc { |_tok, p|
+      if: proc { |_token, p|
         cond = p.parse(TERMS)
         p.expect(:then)
         then_ = p.parse(TERMS)
@@ -197,7 +197,7 @@ module STLC
     Typing.typeof(term)
     Eval.evaluate(term)
   rescue TypeError => e
-    tok = positions && positions[e.node] or raise
-    raise TypeError.new("#{e.message} at #{tok.line}:#{tok.col}", node: e.node)
+    token = positions && positions[e.node] or raise
+    raise TypeError.new("#{e.message} at #{token.line}:#{token.col}", node: e.node)
   end
 end

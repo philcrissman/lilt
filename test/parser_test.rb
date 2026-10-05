@@ -12,7 +12,7 @@ class ParserTest < Minitest::Test
 
   ARITH = {
     prefix: {
-      ident:  proc { |tok| Var.new(tok.value) },
+      ident:  proc { |token| Var.new(token.value) },
       lparen: Lilt.group(:rparen),
     },
     infix:  {
@@ -34,7 +34,7 @@ class ParserTest < Minitest::Test
   def at(positions, node) = positions.fetch(node).then { [_1.line, _1.col] }
 
   def test_parses_a_single_prefix_token
-    table = { prefix: { ident: proc { |tok| Var.new(tok.value) } } }
+    table = { prefix: { ident: proc { |token| Var.new(token.value) } } }
 
     assert_equal Var.new("x"), Lilt.parse(table, tokens("x"))
   end

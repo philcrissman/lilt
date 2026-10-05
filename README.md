@@ -79,7 +79,7 @@ Mul = Data.define(:left, :right)
 
 ARITH = {
   prefix: {
-    int:    proc { |tok| Num.new(tok.value.to_i) },
+    int:    proc { |token| Num.new(token.value.to_i) },
     lparen: Lilt.group(:rparen),
   },
   infix: {
@@ -145,7 +145,7 @@ App = Data.define(:fn, :arg)
 
 LC = {
   prefix: {
-    ident:  proc { |tok| Var.new(tok.value.to_sym) },
+    ident:  proc { |token| Var.new(token.value.to_sym) },
     lparen: Lilt.group(:rparen),
   },
   infix: {

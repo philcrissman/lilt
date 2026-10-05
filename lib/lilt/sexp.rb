@@ -27,11 +27,11 @@ module Lilt
     def list(items) = "(#{items.map { print(_1) }.join(" ")})"
 
     def datum(parser)
-      tok = parser.advance
-      case tok.type
+      token = parser.advance
+      case token.type
       when :lparen then items(parser)
-      when :atom   then atom(tok.value)
-      else parser.error!(tok, "unexpected #{tok.type}")
+      when :atom   then atom(token.value)
+      else parser.error!(token, "unexpected #{token.type}")
       end
     end
 
