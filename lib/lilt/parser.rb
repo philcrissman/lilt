@@ -48,13 +48,13 @@ module Lilt
 
     def parse(table, min_bp = 0)
       start = advance
-      nud = table.fetch(:prefix)[start.type] or error!(start, "unexpected #{start.type}")
-      left = locate(nud.call(start, self, table), start)
+      prefix = table.fetch(:prefix)[start.type] or error!(start, "unexpected #{start.type}")
+      left = locate(prefix.call(start, self, table), start)
 
       loop do
-        bp, led = led_for(table, peek)
+        bp, infix = infix_for(table, peek)
         break if bp.nil? || bp <= min_bp
-        left = locate(led.call(left), start)
+        left = locate(infix.call(left), start)
       end
 
       left
@@ -89,7 +89,7 @@ module Lilt
     # callable that extends +left+. An infix entry consumes the operator
     # token; juxtaposition applies when +tok+ can instead *start* an
     # expression, and consumes nothing before parsing the right side.
-    def led_for(table, tok)
+    def infix_for(table, tok)
       if (infix = table.fetch(:infix, {})[tok.type])
         bp, handler = infix
         return [bp, ->(left) { handler.call(left, advance, self, table) }]
